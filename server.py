@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template_string, send_from_directory, url_for
+from flask import Flask, request, jsonify, render_template_string, send_from_directory
 from flask_cors import CORS
 import os
 import shutil
@@ -32,9 +32,9 @@ def upload_file():
             unique_filename = f"{datetime.now().timestamp()}_{filename}"
             filepath = os.path.join(app.config["UPLOAD_FOLDER"], unique_filename)
             file.save(filepath)
-            return render_template_string(HTML_TEMPLATE, image_url=url_for('uploaded_file', filename=unique_filename))
+            return render_template_string(HTML_TEMPLATE, image_url=f"/static/uploads/{unique_filename}")
 
-    return render_template_string(HTML_TEMPLATE, image_url=None)
+    return render_template_string(HTML_TEMPLATE, image_url="")
 
 @app.route("/api/upload", methods=["POST"])
 def api_upload():
@@ -53,15 +53,15 @@ def api_upload():
         
         return jsonify({
             "message": "File uploaded successfully",
-            "viewer_url": url_for('viewer_page', filename=unique_filename, _external=True),
-            "direct_url": url_for('uploaded_file', filename=unique_filename, _external=True)
+            "viewer_url": f"{request.host_url}viewer/{unique_filename}",
+            "direct_url": f"{request.host_url}static/uploads/{unique_filename}"
         }), 200
 
     return jsonify({"error": "Invalid file type"}), 400
 
 @app.route('/viewer/<filename>')
 def viewer_page(filename):
-    image_url = url_for('uploaded_file', filename=filename)
+    image_url = f"/static/uploads/{filename}"
     return render_template_string(HTML_TEMPLATE, image_url=image_url)
 
 @app.route('/static/uploads/<filename>')
@@ -81,51 +81,102 @@ def process_stitched_image():
     output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
     shutil.copy(input_path, output_path)
 
-    return {"message": "Image processed successfully", "url": url_for('uploaded_file', filename=output_filename)}
+    return {"message": "Image processed successfully", "url": f"/static/uploads/{output_filename}"}
 
 HTML_TEMPLATE = """
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
     <title>360° Scrollable Panorama</title>
     <style>
-        * { touch-action: none; box-sizing: border-box; }
-        body { margin: 0; overflow: hidden; width: 100vw; height: 100vh; }
-        canvas { width: 100% !important; height: 100% !important; }
-        .upload-form { 
-            position: absolute; z-index: 10; padding: 10px; 
-            background: rgba(0,0,0,0.5); width: 100%; max-width: 400px;
-            left: 50%; transform: translateX(-50%); text-align: center;
+        * {
+            touch-action: none;
+            box-sizing: border-box;
         }
-        .upload-form input[type="file"] { width: 100%; margin-bottom: 10px; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            width: 100vw;
+            height: 100vh;
+        }
+        canvas { 
+            width: 100% !important;
+            height: 100% !important;
+        }
+        .upload-form { 
+            position: absolute; 
+            z-index: 10; 
+            padding: 10px; 
+            background: rgba(0,0,0,0.5); 
+            width: 100%;
+            max-width: 400px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+        }
+        .upload-form input[type="file"] {
+            width: 100%;
+            margin-bottom: 10px;
+        }
         .upload-form button {
-            width: 100%; padding: 12px; background: #2c3e50; 
-            color: white; border: none; border-radius: 5px;
+            width: 100%;
+            padding: 12px;
+            background: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 5px;
         }
         .controls {
-            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-            z-index: 20; display: flex; flex-wrap: wrap; justify-content: center;
-            gap: 5px; max-width: 95%;
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 5px;
+            max-width: 95%;
         }
         .controls button {
-            background: linear-gradient(145deg, #2c3e50, #34495e); color: white;
-            border: none; padding: 12px; margin: 0; font-size: 16px; cursor: pointer;
-            border-radius: 8px; box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
-            flex: 1 1 auto; min-width: 60px;
+            background: linear-gradient(145deg, #2c3e50, #34495e);
+            color: white;
+            border: none;
+            padding: 12px;
+            margin: 0;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 8px;
+            box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
+            flex: 1 1 auto;
+            min-width: 60px;
         }
-        @media (min-width: 768px) { .controls button { padding: 15px; font-size: 18px; min-width: 80px; } }
-        @media (max-width: 480px) { 
-            .controls { bottom: 10px; gap: 3px; }
-            .controls button { padding: 10px; font-size: 14px; min-width: 50px; }
+        @media (min-width: 768px) {
+            .controls button {
+                padding: 15px;
+                font-size: 18px;
+                min-width: 80px;
+            }
+        }
+        @media (max-width: 480px) {
+            .controls {
+                bottom: 10px;
+                gap: 3px;
+            }
+            .controls button {
+                padding: 10px;
+                font-size: 14px;
+                min-width: 50px;
+            }
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
     {% if not image_url %}
-    <form class="upload-form" method="post" enctype="multipart/form-data">
+    <form action="/" method="post" enctype="multipart/form-data" class="upload-form">
         <input type="file" name="file" accept="image/*">
         <button type="submit">Upload</button>
     </form>
@@ -146,73 +197,142 @@ HTML_TEMPLATE = """
 
     <script>
         let scene, camera, renderer, sphere;
-        let moveSpeed = 0.5, zoomSpeed = 1.0, rotationSpeed = 0.005, verticalSpeed = 0.5;
-        let keys = {}, isDragging = false, previousMousePosition = { x: 0, y: 0 };
+        let moveSpeed = 0.5;
+        let zoomSpeed = 1.0;
+        let rotationSpeed = 0.005;
+        let verticalSpeed = 0.5;
+        let keys = {};
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        let previousTouchPosition = { x: 0, y: 0 };
 
         function init() {
             scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            scene.background = new THREE.Color(0xFFFFFF);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ 
+                antialias: true,
+                powerPreference: "high-performance"
+            });
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            new THREE.TextureLoader().load("{{ image_url }}", texture => {
+            const textureLoader = new THREE.TextureLoader();
+            textureLoader.load("{{ image_url }}", function(texture) {
                 texture.wrapS = THREE.RepeatWrapping;
                 texture.repeat.x = -1;
-                sphere = new THREE.Mesh(
-                    new THREE.SphereGeometry(500, 60, 40),
-                    new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide })
-                );
+
+                const geometry = new THREE.SphereGeometry(500, 60, 40);
+                const material = new THREE.MeshBasicMaterial({ 
+                    map: texture, 
+                    side: THREE.BackSide 
+                });
+                sphere = new THREE.Mesh(geometry, material);
                 scene.add(sphere);
+
                 animate();
             });
 
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
+            window.addEventListener('resize', onWindowResize, false);
+            
+            document.addEventListener('keydown', (event) => { 
+                keys[event.key.toLowerCase()] = true; 
+            });
+            document.addEventListener('keyup', (event) => { 
+                keys[event.key.toLowerCase()] = false; 
             });
 
-            // Event listeners for controls
-            document.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-            document.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-            document.addEventListener('mousedown', e => {
+            document.addEventListener('mousedown', (event) => {
                 isDragging = true;
-                previousMousePosition = { x: e.clientX, y: e.clientY };
+                previousMousePosition = { 
+                    x: event.clientX, 
+                    y: event.clientY 
+                };
             });
-            document.addEventListener('mousemove', e => {
-                if (!isDragging) return;
-                const deltaX = e.clientX - previousMousePosition.x;
-                const deltaY = e.clientY - previousMousePosition.y;
-                sphere.rotation.y += deltaX * rotationSpeed;
-                sphere.rotation.x += deltaY * rotationSpeed;
-                previousMousePosition = { x: e.clientX, y: e.clientY };
+
+            document.addEventListener('mousemove', (event) => {
+                if (isDragging) {
+                    handleMovement(event.clientX, event.clientY);
+                }
             });
-            document.addEventListener('mouseup', () => isDragging = false);
+
+            document.addEventListener('mouseup', () => { 
+                isDragging = false; 
+            });
+
+            document.addEventListener('touchstart', (event) => {
+                if (event.touches.length === 1) {
+                    previousTouchPosition = {
+                        x: event.touches[0].clientX,
+                        y: event.touches[0].clientY
+                    };
+                }
+            }, { passive: false });
+
+            document.addEventListener('touchmove', (event) => {
+                if (event.touches.length === 1) {
+                    handleMovement(
+                        event.touches[0].clientX,
+                        event.touches[0].clientY
+                    );
+                    previousTouchPosition = {
+                        x: event.touches[0].clientX,
+                        y: event.touches[0].clientY
+                    };
+                }
+                event.preventDefault();
+            }, { passive: false });
+
+            document.querySelector(".controls").style.display = "flex";
         }
 
-        function animate() {
-            requestAnimationFrame(animate);
-            const direction = new THREE.Vector3();
-            camera.getWorldDirection(direction);
-            
-            if (keys['w']) camera.position.addScaledVector(direction, moveSpeed);
-            if (keys['s']) camera.position.addScaledVector(direction, -moveSpeed);
-            if (keys['a']) sphere.rotation.y += rotationSpeed;
-            if (keys['d']) sphere.rotation.y -= rotationSpeed;
-            if (keys['arrowup']) camera.position.y += verticalSpeed;
-            if (keys['arrowdown']) camera.position.y -= verticalSpeed;
-            if (keys['+']) camera.fov = Math.max(30, camera.fov - zoomSpeed);
-            if (keys['-']) camera.fov = Math.min(100, camera.fov + zoomSpeed);
-            
+        function handleMovement(x, y) {
+            let deltaX = x - previousMousePosition.x;
+            let deltaY = y - previousMousePosition.y;
+
+            sphere.rotation.y += deltaX * rotationSpeed;
+            sphere.rotation.x += deltaY * rotationSpeed;
+            previousMousePosition = { x, y };
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
-            renderer.render(scene, camera);
+            renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
         function startMoving(key) { keys[key] = true; }
         function stopMoving(key) { keys[key] = false; }
-        
+
+        function updateMovement() {
+            let direction = new THREE.Vector3();
+            camera.getWorldDirection(direction);
+
+            if (keys['w']) camera.position.addScaledVector(direction, moveSpeed);
+            if (keys['s']) camera.position.addScaledVector(direction, -moveSpeed);
+
+            if (keys['a'] || keys['arrowleft']) sphere.rotation.y += rotationSpeed;
+            if (keys['d'] || keys['arrowright']) sphere.rotation.y -= rotationSpeed;
+
+            if (keys['arrowup']) camera.position.y += verticalSpeed;
+            if (keys['arrowdown']) camera.position.y -= verticalSpeed;
+
+            if (keys['+']) camera.fov = Math.max(30, camera.fov - zoomSpeed);
+            if (keys['-']) camera.fov = Math.min(100, camera.fov + zoomSpeed);
+
+            camera.updateProjectionMatrix();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            updateMovement();
+            renderer.render(scene, camera);
+        }
+
         init();
     </script>
 </body>
@@ -220,4 +340,4 @@ HTML_TEMPLATE = """
 """
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(debug=True)
